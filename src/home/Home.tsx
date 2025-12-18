@@ -28,6 +28,10 @@ export default function Home() {
     await commands.stopTrack();
   }
 
+  const playQueue = async () => {
+    await commands.playQueue();
+  }
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-screen">
@@ -44,7 +48,9 @@ export default function Home() {
   return (
     <div className="h-screen m-5 flex flex-col gap-5">
       <div className="flex gap-5">
-        <DevicePicker />
+        <Button onClick={playQueue}>
+          Play Queue
+        </Button>
         <Button onClick={stopPlayback}>
           Stop Playback
         </Button>

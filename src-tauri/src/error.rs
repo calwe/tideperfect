@@ -6,7 +6,7 @@ use serde::{Serialize, Serializer};
 use specta::Type;
 use thiserror::Error;
 
-use crate::{audio::track::PlayerTrackError, commands::auth::AuthError};
+use crate::{audio::{player::PlayerError, track::PlayerTrackError}, commands::auth::AuthError};
 
 #[derive(Debug, Error, Type)]
 pub enum AppError {
@@ -14,6 +14,8 @@ pub enum AppError {
     Auth(#[from] AuthError),
     #[error(transparent)]
     PlayerTrack(#[from] PlayerTrackError),
+    #[error(transparent)]
+    Player(#[from] PlayerError),
 
     #[error("Tauri error: {0}")]
     Tauri(String),

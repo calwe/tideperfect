@@ -85,6 +85,22 @@ async setOutputDevice(device: string) : Promise<Result<null, AppError>> {
     else return { status: "error", error: e  as any };
 }
 },
+async queueTrack(songId: string) : Promise<Result<null, AppError>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("queue_track", { songId }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async playQueue() : Promise<Result<null, AppError>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("play_queue") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async fetchTrack(songId: string) : Promise<Result<Track, AppError>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("fetch_track", { songId }) };
@@ -106,7 +122,7 @@ async fetchTrack(songId: string) : Promise<Result<Track, AppError>> {
 /** user-defined types **/
 
 export type Album = { id: string; title: string; quality: string }
-export type AppError = { Auth: AuthError } | { PlayerTrack: PlayerTrackError } | { Tauri: string } | { Io: string } | { Serde: string } | { Tidal: string } | { Utf8: string } | { DashMpd: string } | { Base64Decode: string } | { StringToInt: string } | { Other: string }
+export type AppError = { Auth: AuthError } | { PlayerTrack: PlayerTrackError } | { Player: PlayerError } | { Tauri: string } | { Io: string } | { Serde: string } | { Tidal: string } | { Utf8: string } | { DashMpd: string } | { Base64Decode: string } | { StringToInt: string } | { Other: string }
 export type AudioQuality = 
 /**
  * Low quality (typically 96 kbps AAC)
@@ -130,7 +146,9 @@ export type MediaMetadata = {
  * Tags associated with the media
  */
 tags?: string[] }
-export type PlayerTrackError = { UnsupportedManifest: string }
+export type PlayerError = "NoDefaultDevice" | "BackgroundThreadDied"
+export type PlayerTrackError = { UnsupportedManifest: string } | "NoDefaultDevice" | "NoDevices" | { DeviceName: string } | "NoSupportedConfigs" | { UnsupportedConfig: PlayerTrackMetadata } | { SupportedStreamConfigs: string } | { UnsupportedSampleSize: number }
+export type PlayerTrackMetadata = { id: string; sample_rate: number; sample_size: number; channels: number }
 export type Track = { 
 /**
  * Unique track identifier

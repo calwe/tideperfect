@@ -38,6 +38,7 @@ pub fn run() {
             album::favourite_albums, album::album_tracks,
             auth::start_authorization, auth::authorize, auth::get_username, auth::logout,
             playback::play_track, playback::stop_track, playback::devices, playback::set_output_device,
+            playback::queue_track, playback::play_queue,
             track::fetch_track,
         ]);
 

@@ -1,20 +1,23 @@
-use std::{sync::Arc, thread};
+use std::sync::{atomic::{AtomicBool, Ordering}, Arc};
 
 use base64::prelude::*;
-use cpal::Sample;
+use cpal::{traits::{DeviceTrait, StreamTrait}, Device, Sample, SampleFormat, SampleRate, Stream, SupportedStreamConfigsError};
 use dash_mpd::MPD;
-use ringbuf::{traits::{Observer, Split}, HeapRb};
+use open::commands;
+use ringbuf::{traits::{Consumer, Observer, Split}, CachingCons, CachingProd, HeapRb};
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use thiserror::Error;
+use tokio::{sync::mpsc, task::JoinHandle};
 use tidalrs::TidalClient;
-use tracing::{info, instrument, trace};
+use tracing::{info, instrument, trace, error};
 
-use crate::{audio::{player::Player, stream::stream_dash_audio}, error::AppError};
+use crate::{audio::{player::{Player, PlayerCommand}, stream::{stream_dash_audio, stream_url}}, error::AppError};
 
 pub struct PlayerTrack {
     pub metadata: PlayerTrackMetadata,
     pub buffer: Arc<HeapRb<i32>>,
+    pub stream: Option<Stream>,
     pub mpd: Option<MPD>,
     pub url: Option<String>,
 }
@@ -29,7 +32,7 @@ impl std::fmt::Debug for PlayerTrack {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Type)]
 pub struct PlayerTrackMetadata {
     pub id: u64,
     pub sample_rate: u32,
@@ -49,7 +52,21 @@ struct FlacManifest {
 #[derive(Debug, Error, Type)]
 pub enum PlayerTrackError {
     #[error("Manifest from tidal is currently unsupported: {0}")]
-    UnsupportedManifest(String)
+    UnsupportedManifest(String),
+    #[error("No default device for host")]
+    NoDefaultDevice,
+    #[error("Could not get any output devices")]
+    NoDevices,
+    #[error("Could not retrieve a devices name: {0}")]
+    DeviceName(String),
+    #[error("Could not retrieve any configs for the device")]
+    NoSupportedConfigs,
+    #[error("Cannot find a config suitable for playing the track: {0:?}")]
+    UnsupportedConfig(PlayerTrackMetadata),
+    #[error("SupportedStreamConfigsError: {0}")]
+    SupportedStreamConfigs(String),
+    #[error("Track sample_size ({0}) is unsupported by the player")]
+    UnsupportedSampleSize(u32),
 }
 
 const BUFFER_SIZE_SECONDS: usize = 500;
@@ -87,6 +104,7 @@ impl PlayerTrack {
                 Ok(Self {
                     metadata,
                     buffer,
+                    stream: None,
                     mpd: None,
                     url: Some(manifest.urls[0].clone()),
                 })
@@ -111,11 +129,187 @@ impl PlayerTrack {
                 Ok(Self {
                     metadata,
                     buffer,
+                    stream: None,
                     mpd: Some(mpd),
                     url: None,
                 })
             },
             _ => Err(PlayerTrackError::UnsupportedManifest(manifest))?
+        }
+    }
+
+    pub fn start_playback(&mut self, device: &Device, player_tx: mpsc::Sender<PlayerCommand>) -> Result <(), PlayerTrackError> {
+        info!("Playing track (ID #{})", self.metadata.id);
+
+        self.stream = None;
+
+        let buffer = self.buffer.clone();
+        let (producer, mut consumer) = buffer.split();
+
+        // Track when streaming is complete
+        let streaming_done = Arc::new(AtomicBool::new(false));
+        let track_finished_sent = Arc::new(AtomicBool::new(false));
+
+        // begin filling buffer
+        Self::stream(producer, self.mpd.clone(), self.url.clone(), streaming_done.clone());
+
+        let metadata = self.metadata;
+        let supported_configs = device.supported_output_configs().map_err(|e| PlayerTrackError::SupportedStreamConfigs(e.to_string()))?;
+        let supported_config = supported_configs
+            .filter(|c| c.channels() == metadata.channels)
+            .find(|c| c.sample_format() == Self::sample_size_to_format(metadata.sample_size))
+            .ok_or(PlayerTrackError::UnsupportedConfig(metadata))?
+            .try_with_sample_rate(SampleRate(metadata.sample_rate))
+            .ok_or(PlayerTrackError::UnsupportedConfig(metadata))?;
+        trace!("Using supported config: {supported_config:?}");
+
+        let err_fn = |err| error!("an error occurred on the output audio stream: {}", err);
+        let stream = match metadata.sample_size {
+            16 => {
+                let streaming_done_clone = streaming_done.clone();
+                let track_finished_sent_clone = track_finished_sent.clone();
+                let player_tx_clone = player_tx.clone();
+
+                device.build_output_stream(
+                    &supported_config.config(),
+                    move |data, _| {
+                        let buffer_empty = Self::write_audio_data_16_bit(data, &mut consumer);
+
+                        // If streaming is done AND buffer is empty AND we haven't sent the signal yet
+                        if buffer_empty &&
+                           streaming_done_clone.load(Ordering::Relaxed) &&
+                           !track_finished_sent_clone.swap(true, Ordering::Relaxed) {
+                            info!("Track playback complete (buffer empty and streaming done)");
+                            let _ = player_tx_clone.try_send(PlayerCommand::TrackFinished);
+                        }
+                    },
+                    err_fn,
+                    None
+                )
+            }
+            24 => {
+                let streaming_done_clone = streaming_done.clone();
+                let track_finished_sent_clone = track_finished_sent.clone();
+                let player_tx_clone = player_tx.clone();
+
+                device.build_output_stream(
+                    &supported_config.config(),
+                    move |data, _| {
+                        let buffer_empty = Self::write_audio_data_24_bit(data, &mut consumer);
+
+                        // If streaming is done AND buffer is empty AND we haven't sent the signal yet
+                        if buffer_empty &&
+                           streaming_done_clone.load(Ordering::Relaxed) &&
+                           !track_finished_sent_clone.swap(true, Ordering::Relaxed) {
+                            info!("Track playback complete (buffer empty and streaming done)");
+                            let _ = player_tx_clone.try_send(PlayerCommand::TrackFinished);
+                        }
+                    },
+                    err_fn,
+                    None
+                )
+            }
+            _ => return Err(PlayerTrackError::UnsupportedSampleSize(metadata.sample_size))
+        }
+        .unwrap();
+
+        trace!("Made stream");
+
+        stream.play().unwrap();
+
+        trace!("Playing stream");
+
+        self.stream = Some(stream);
+
+        Ok(())
+    }
+
+    pub fn stop_track(&mut self) {
+        self.stream = None;
+    }
+
+    #[instrument(skip(producer, streaming_done))]
+    fn stream(
+        producer: CachingProd<Arc<HeapRb<i32>>>,
+        mpd: Option<MPD>,
+        url: Option<String>,
+        streaming_done: Arc<AtomicBool>
+    ) -> JoinHandle<()> {
+        if let Some(mpd) = mpd {
+            tokio::spawn(async move {
+                if let Err(error) = stream_dash_audio(producer, mpd).await {
+                    error!("Stream Error: {error}");
+                }
+                streaming_done.store(true, Ordering::Relaxed);
+                info!("Streaming complete (buffer filled)");
+            })
+        } else if let Some(url) = url {
+            tokio::spawn(async move {
+                if let Err(error) = stream_url(producer, url).await {
+                    error!("Stream Error: {error}");
+                }
+                streaming_done.store(true, Ordering::Relaxed);
+                info!("Streaming complete (buffer filled)");
+            })
+        } else {
+            unreachable!("Stream function did not recieve a URl or MPD to stream from. This is a bug.");
+        }
+    }
+
+    #[instrument(skip(output, consumer))]
+    fn write_audio_data_24_bit(
+        output: &mut [i32],
+        consumer: &mut CachingCons<Arc<HeapRb<i32>>>,
+    ) -> bool {
+        let mut i = 0;
+        let mut buffer_was_empty = false;
+
+        while i < output.len() {
+            if let Some(sample) = consumer.try_pop() {
+                output[i] = sample;
+                i += 1;
+            } else {
+                buffer_was_empty = true;
+                for sample in &mut output[i..] {
+                    *sample = i32::EQUILIBRIUM;
+                }
+                break;
+            }
+        }
+
+        buffer_was_empty
+    }
+
+    #[instrument(skip(output, consumer))]
+    fn write_audio_data_16_bit(
+        output: &mut [i16],
+        consumer: &mut CachingCons<Arc<HeapRb<i32>>>,
+    ) -> bool {
+        let mut i = 0;
+        let mut buffer_was_empty = false;
+
+        while i < output.len() {
+            if let Some(sample) = consumer.try_pop() {
+                output[i] = sample.to_sample();
+                i += 1;
+            } else {
+                buffer_was_empty = true;
+                for sample in &mut output[i..] {
+                    *sample = i16::EQUILIBRIUM;
+                }
+                break;
+            }
+        }
+
+        buffer_was_empty
+    }
+    
+    // TODO: I need to find out more about what sample format to use... does it really matter?
+    fn sample_size_to_format(sample_size: u32) -> SampleFormat {
+        match sample_size {
+            16 => SampleFormat::I16,
+            24 => SampleFormat::I32,
+            _ => SampleFormat::I32,
         }
     }
 }
