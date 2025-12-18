@@ -2,7 +2,7 @@ import { HashRouter, Routes, Route } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import Home from './home/Home';
 import Login from './login/Login';
-import Album from './components/album/Album';
+import Album from './album/Album';
 
 const queryClient = new QueryClient({
   defaultOptions: {

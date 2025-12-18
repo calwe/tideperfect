@@ -49,9 +49,6 @@ export default function Home() {
           Stop Playback
         </Button>
       </div>
-      <div className="flex gap-5">
-        {songs.map(song => <SongCard songId={song} />)}
-      </div>
       <div className="flex flex-wrap gap-5">
         {albums?.map(album => <AlbumCard id={album.id} title={album.title} quality={album.quality}/>)}
       </div>

@@ -5,7 +5,7 @@ use tokio::sync::Mutex;
 use tracing::{info, instrument, warn};
 use strum_macros::AsRefStr;
 
-use crate::{commands::{album, auth::AuthError}, error::AppError, state::AppState};
+use crate::{commands::{album, auth::AuthError}, error::AppError, models::track::Track, state::AppState};
 
 #[derive(Debug, Type, Clone, Serialize, Deserialize)]
 pub struct Album {
@@ -36,14 +36,14 @@ pub async fn favourite_albums(state: State<'_, Mutex<AppState>>) -> Result<Vec<A
 #[tauri::command]
 #[specta::specta]
 #[instrument(skip(state), err)]
-pub async fn album_tracks(state: State<'_, Mutex<AppState>>, id: String) -> Result<Vec<String>, AppError> {
+pub async fn album_tracks(state: State<'_, Mutex<AppState>>, id: String) -> Result<Vec<Track>, AppError> {
     let state = state.lock().await;
 
     let id: u64 = id.parse().unwrap();
 
-    let tracks = state.client.album_tracks(id, None, None).await.unwrap();
+    let tracks = state.client.album_tracks(id, None, None).await?;
     Ok(tracks.items.iter()
-        .map(|track| track.id.to_string())
+        .map(|track| track.clone().into())
         .collect())
 }
 

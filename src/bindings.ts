@@ -13,7 +13,7 @@ async favouriteAlbums() : Promise<Result<Album[], AppError>> {
     else return { status: "error", error: e  as any };
 }
 },
-async albumTracks(id: string) : Promise<Result<string[], AppError>> {
+async albumTracks(id: string) : Promise<Result<Track[], AppError>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("album_tracks", { id }) };
 } catch (e) {
