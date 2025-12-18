@@ -1,10 +1,10 @@
-use std::{future::Future, sync::Arc, thread};
-
+use std::sync::Arc;
+use tokio::task::JoinHandle;
 use cpal::{default_host, traits::{DeviceTrait, HostTrait, StreamTrait}, Device, Host, Sample, SampleFormat, SampleRate, Stream, SupportedStreamConfigsError};
 use dash_mpd::MPD;
-use ringbuf::{traits::{Consumer, Split}, CachingCons, CachingProd, HeapRb, SharedRb};
+use ringbuf::{traits::{Consumer, Split}, CachingCons, CachingProd, HeapRb};
 use thiserror::Error;
-use tracing::{error, info, info_span, instrument, trace, warn};
+use tracing::{error, info, instrument, trace, warn};
 
 use crate::audio::{stream::{stream_dash_audio, stream_url}, track::{PlayerTrack, PlayerTrackMetadata}};
 
@@ -12,6 +12,7 @@ pub struct Player {
     host: Host,
     device: Device,
     stream: Option<Stream>,
+    stream_handle: Option<JoinHandle<()>>,
 }
 
 #[derive(Error, Debug)]
@@ -43,6 +44,7 @@ impl Player {
             host,
             device,
             stream: None,
+            stream_handle: None,
         })
     }
 
@@ -67,11 +69,15 @@ impl Player {
         info!("Playing track (ID #{})", track.metadata.id);
 
         self.stream = None;
+        
+        if let Some(handle) = &self.stream_handle {
+            handle.abort();
+        }
 
         let (producer, mut consumer) = track.buffer.split();
 
         // begin filling buffer
-        Self::stream(producer, track.mpd, track.url);
+        self.stream_handle = Some(Self::stream(producer, track.mpd, track.url));
 
         let metadata = track.metadata;
         let supported_configs = self.device.supported_output_configs()?;
@@ -123,22 +129,29 @@ impl Player {
     #[instrument(skip(self), fields(device = %self.device.name().unwrap_or("invalid_name".to_owned())))]
     pub fn stop_track(&mut self) {
         self.stream = None;
+
+        if let Some(handle) = &self.stream_handle {
+            handle.abort();
+        }
+        self.stream_handle = None;
     }
 
     #[instrument(skip(producer))]
-    fn stream(producer: CachingProd<Arc<HeapRb<i32>>>, mpd: Option<MPD>, url: Option<String>) {
+    fn stream(producer: CachingProd<Arc<HeapRb<i32>>>, mpd: Option<MPD>, url: Option<String>) -> JoinHandle<()> {
         if let Some(mpd) = mpd {
             tokio::spawn(async move {
                 if let Err(error) = stream_dash_audio(producer, mpd).await {
                     error!("Stream Error: {error}");
                 }
-            });
+            })
         } else if let Some(url) = url {
             tokio::spawn(async move {
                 if let Err(error) = stream_url(producer, url).await {
                     error!("Stream Error: {error}");
                 }
-            });
+            })
+        } else {
+            unreachable!("Stream function did not recieve a URl or MPD to stream from. This is a bug.");
         }
     }
 
