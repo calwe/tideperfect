@@ -147,7 +147,7 @@ export type MediaMetadata = {
  */
 tags?: string[] }
 export type PlayerError = "NoDefaultDevice" | "BackgroundThreadDied"
-export type PlayerTrackError = { UnsupportedManifest: string } | "NoDefaultDevice" | "NoDevices" | { DeviceName: string } | "NoSupportedConfigs" | { UnsupportedConfig: PlayerTrackMetadata } | { SupportedStreamConfigs: string } | { UnsupportedSampleSize: number }
+export type PlayerTrackError = { UnsupportedManifest: string } | { UnsupportedConfig: PlayerTrackMetadata } | { SupportedStreamConfigs: string } | { UnsupportedSampleSize: number }
 export type PlayerTrackMetadata = { id: string; sample_rate: number; sample_size: number; channels: number }
 export type Track = { 
 /**

@@ -1,3 +1,4 @@
+use std::time::Duration;
 use std::{io::Cursor, sync::Arc};
 
 use dash_mpd::{SegmentTimeline, MPD};
@@ -60,9 +61,11 @@ pub async fn stream_dash_audio(mut producer: CachingProd<Arc<HeapRb<i32>>>, mpd:
         let mut complete_data = init_data.clone();
         complete_data.extend_from_slice(&seg_data);
 
-        let samples = decode_segment(complete_data)?;
+        let mut samples = decode_segment(complete_data)?.into_iter();
 
-        producer.push_slice(&samples);
+        while producer.push_iter(&mut samples) != 0 {
+            tokio::time::sleep(Duration::from_millis(50)).await;
+        }
     }
 
     Ok(())
@@ -238,8 +241,11 @@ pub async fn stream_url(mut producer: CachingProd<Arc<HeapRb<i32>>>, url: String
 
             if let Some(ref mut buf) = sample_buf {
                 buf.copy_interleaved_ref(decoded);
-                // Push samples to producer as soon as each packet is decoded
-                producer.push_slice(buf.samples());
+
+                let mut samples = buf.samples().iter().copied();
+                while producer.push_iter(&mut samples) != 0 {
+                    std::thread::sleep(Duration::from_millis(50));
+                }
             }
         }
 

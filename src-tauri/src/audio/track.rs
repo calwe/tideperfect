@@ -1,18 +1,17 @@
 use std::sync::{atomic::{AtomicBool, Ordering}, Arc};
 
 use base64::prelude::*;
-use cpal::{traits::{DeviceTrait, StreamTrait}, Device, Sample, SampleFormat, SampleRate, Stream, SupportedStreamConfigsError};
+use cpal::{traits::{DeviceTrait, StreamTrait}, Device, Sample, SampleFormat, SampleRate, Stream};
 use dash_mpd::MPD;
-use open::commands;
 use ringbuf::{traits::{Consumer, Observer, Split}, CachingCons, CachingProd, HeapRb};
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize};
 use specta::Type;
 use thiserror::Error;
 use tokio::{sync::mpsc, task::JoinHandle};
 use tidalrs::TidalClient;
 use tracing::{info, instrument, trace, error};
 
-use crate::{audio::{player::{Player, PlayerCommand}, stream::{stream_dash_audio, stream_url}}, error::AppError};
+use crate::{audio::{player::{PlayerCommand}, stream::{stream_dash_audio, stream_url}}, error::AppError};
 
 pub struct PlayerTrack {
     pub metadata: PlayerTrackMetadata,
@@ -26,7 +25,7 @@ impl std::fmt::Debug for PlayerTrack {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("PlayerTrack")
             .field("metadata", &self.metadata)
-            .field("buffer", &format!("[i32; {}]", &self.buffer.occupied_len() + &self.buffer.vacant_len()))
+            .field("buffer", &format!("[i32; {}]", self.buffer.occupied_len() + self.buffer.vacant_len()))
             .field("mpd", &"MPD {...}")
             .finish()
     }
@@ -43,9 +42,9 @@ pub struct PlayerTrackMetadata {
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct FlacManifest {
-    mime_type: String,
-    codecs: String,
-    encryption_type: String,
+    _mime_type: String,
+    _codecs: String,
+    _encryption_type: String,
     urls: Vec<String>,
 }
 
@@ -53,14 +52,6 @@ struct FlacManifest {
 pub enum PlayerTrackError {
     #[error("Manifest from tidal is currently unsupported: {0}")]
     UnsupportedManifest(String),
-    #[error("No default device for host")]
-    NoDefaultDevice,
-    #[error("Could not get any output devices")]
-    NoDevices,
-    #[error("Could not retrieve a devices name: {0}")]
-    DeviceName(String),
-    #[error("Could not retrieve any configs for the device")]
-    NoSupportedConfigs,
     #[error("Cannot find a config suitable for playing the track: {0:?}")]
     UnsupportedConfig(PlayerTrackMetadata),
     #[error("SupportedStreamConfigsError: {0}")]
@@ -69,7 +60,7 @@ pub enum PlayerTrackError {
     UnsupportedSampleSize(u32),
 }
 
-const BUFFER_SIZE_SECONDS: usize = 500;
+const BUFFER_SIZE_SECONDS: usize = 5;
 
 impl PlayerTrack {
     #[instrument(skip(client), err)]
