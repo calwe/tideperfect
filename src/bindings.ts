@@ -148,10 +148,12 @@ async fetchTrack(songId: string) : Promise<Result<Track, AppError>> {
 
 export const events = __makeEvents__<{
 currentTrackEvent: CurrentTrackEvent,
+playbackProgressEvent: PlaybackProgressEvent,
 playbackStateEvent: PlaybackStateEvent,
 updatedQueueEvent: UpdatedQueueEvent
 }>({
 currentTrackEvent: "current-track-event",
+playbackProgressEvent: "playback-progress-event",
 playbackStateEvent: "playback-state-event",
 updatedQueueEvent: "updated-queue-event"
 })
@@ -213,6 +215,7 @@ export type MediaMetadata = {
  * Tags associated with the media
  */
 tags?: string[] }
+export type PlaybackProgressEvent = number
 export type PlaybackStateEvent = boolean
 export type PlayerError = "NoDefaultDevice" | "BackgroundThreadDied"
 export type PlayerTrackError = { UnsupportedManifest: string } | { UnsupportedConfig: PlayerTrackMetadata } | { SupportedStreamConfigs: string } | { UnsupportedSampleSize: number }

@@ -1,4 +1,4 @@
-use std::sync::{atomic::{AtomicBool, Ordering}, Arc};
+use std::{sync::{atomic::{AtomicBool, AtomicU64, Ordering}, Arc}, time::Duration};
 
 use base64::prelude::*;
 use cpal::{traits::{DeviceTrait, StreamTrait}, Device, Sample, SampleFormat, SampleRate, Stream};
@@ -6,9 +6,10 @@ use dash_mpd::MPD;
 use ringbuf::{traits::{Consumer, Observer, Split}, CachingCons, CachingProd, HeapRb};
 use serde::{Deserialize, Serialize};
 use specta::Type;
+use tauri::{AppHandle, Emitter};
 use tauri_specta::Event;
 use thiserror::Error;
-use tokio::{sync::mpsc, task::JoinHandle};
+use tokio::{sync::mpsc, task::JoinHandle, time::sleep};
 use tidalrs::TidalClient;
 use tracing::{info, instrument, trace, error};
 
@@ -17,6 +18,9 @@ use crate::{audio::{player::PlayerCommand, stream::{stream_dash_audio, stream_ur
 #[derive(Serialize, Deserialize, Debug, Clone, Type, Event)]
 pub struct CurrentTrackEvent(pub Option<Track>);
 
+#[derive(Serialize, Deserialize, Debug, Clone, Type, Event)]
+pub struct PlaybackProgressEvent(pub u32);
+
 pub struct PlayerTrack {
     pub metadata: PlayerTrackMetadata,
     pub track: Track,
@@ -24,6 +28,8 @@ pub struct PlayerTrack {
     pub stream: Option<Stream>,
     pub mpd: Option<MPD>,
     pub url: Option<String>,
+    pub samples_played: Arc<AtomicU64>,
+    pub progress_handle: Option<JoinHandle<()>>,
 }
 
 impl std::fmt::Debug for PlayerTrack {
@@ -102,9 +108,11 @@ impl PlayerTrack {
                     metadata,
                     track,
                     buffer,
+                    samples_played: Arc::new(AtomicU64::new(0)),
                     stream: None,
                     mpd: None,
                     url: Some(manifest.urls[0].clone()),
+                    progress_handle: None,
                 })
             },
             '<' => {
@@ -127,17 +135,19 @@ impl PlayerTrack {
                 Ok(Self {
                     metadata,
                     buffer,
+                    samples_played: Arc::new(AtomicU64::new(0)),
                     track,
                     stream: None,
                     mpd: Some(mpd),
                     url: None,
+                    progress_handle: None,
                 })
             },
             _ => Err(PlayerTrackError::UnsupportedManifest(manifest))?
         }
     }
 
-    pub fn start_playback(&mut self, device: &Device, player_tx: mpsc::Sender<PlayerCommand>, paused: Arc<AtomicBool>) -> Result <(), PlayerTrackError> {
+    pub fn start_playback(&mut self, device: &Device, player_tx: mpsc::Sender<PlayerCommand>, paused: Arc<AtomicBool>, app_handle: AppHandle) -> Result <(), PlayerTrackError> {
         info!("Playing track (ID #{})", self.metadata.id);
 
         self.stream = None;
@@ -162,6 +172,7 @@ impl PlayerTrack {
             .ok_or(PlayerTrackError::UnsupportedConfig(metadata))?;
         trace!("Using supported config: {supported_config:?}");
 
+        let samples_played = self.samples_played.clone();
         let err_fn = |err| error!("an error occurred on the output audio stream: {}", err);
         let stream = match metadata.sample_size {
             16 => {
@@ -172,7 +183,7 @@ impl PlayerTrack {
                 device.build_output_stream(
                     &supported_config.config(),
                     move |data, _| {
-                        let buffer_empty = Self::write_audio_data_16_bit(data, &mut consumer, paused.clone());
+                        let buffer_empty = Self::write_audio_data_16_bit(data, &mut consumer, paused.clone(), samples_played.clone());
 
                         // If streaming is done AND buffer is empty AND we haven't sent the signal yet
                         if buffer_empty &&
@@ -194,7 +205,7 @@ impl PlayerTrack {
                 device.build_output_stream(
                     &supported_config.config(),
                     move |data, _| {
-                        let buffer_empty = Self::write_audio_data_24_bit(data, &mut consumer, paused.clone());
+                        let buffer_empty = Self::write_audio_data_24_bit(data, &mut consumer, paused.clone(), samples_played.clone());
 
                         // If streaming is done AND buffer is empty AND we haven't sent the signal yet
                         if buffer_empty &&
@@ -218,6 +229,17 @@ impl PlayerTrack {
 
         trace!("Playing stream");
 
+        let samples_played = self.samples_played.clone();
+
+        self.progress_handle = Some(tokio::spawn(async move {
+            loop {
+                let samples_played = samples_played.load(Ordering::Relaxed);
+                let progress = samples_played / metadata.channels as u64 / metadata.sample_rate as u64;
+                let _ = PlaybackProgressEvent(progress as u32).emit(&app_handle);
+                sleep(Duration::from_millis(100)).await;
+            }
+        }));
+
         self.stream = Some(stream);
 
         Ok(())
@@ -227,6 +249,12 @@ impl PlayerTrack {
         let buffer = Arc::new(HeapRb::<i32>::new(BUFFER_SIZE_SECONDS * self.metadata.sample_rate as usize));
 
         self.buffer = buffer;
+
+        if let Some(handle) = &self.progress_handle {
+            handle.abort();
+            self.progress_handle = None;
+        }
+
         self.stream = None;
     }
 
@@ -263,6 +291,7 @@ impl PlayerTrack {
         output: &mut [i32],
         consumer: &mut CachingCons<Arc<HeapRb<i32>>>,
         paused: Arc<AtomicBool>,
+        samples_played: Arc<AtomicU64>,
     ) -> bool {
         let mut i = 0;
         let mut buffer_was_empty = false;
@@ -276,6 +305,7 @@ impl PlayerTrack {
 
             if let Some(sample) = consumer.try_pop() {
                 output[i] = sample;
+                samples_played.fetch_add(1, Ordering::Relaxed);
                 i += 1;
             } else {
                 buffer_was_empty = true;
@@ -294,6 +324,7 @@ impl PlayerTrack {
         output: &mut [i16],
         consumer: &mut CachingCons<Arc<HeapRb<i32>>>,
         paused: Arc<AtomicBool>,
+        samples_played: Arc<AtomicU64>,
     ) -> bool {
         let mut i = 0;
         let mut buffer_was_empty = false;
@@ -307,6 +338,7 @@ impl PlayerTrack {
 
             if let Some(sample) = consumer.try_pop() {
                 output[i] = sample.to_sample();
+                samples_played.fetch_add(1, Ordering::Relaxed);
                 i += 1;
             } else {
                 buffer_was_empty = true;

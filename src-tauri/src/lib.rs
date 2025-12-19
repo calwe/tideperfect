@@ -45,6 +45,7 @@ pub fn run() {
         .events(collect_events![
             queue::UpdatedQueueEvent,
             audio::track::CurrentTrackEvent,
+            audio::track::PlaybackProgressEvent,
             audio::player::PlaybackStateEvent,
         ]);
 

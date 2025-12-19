@@ -122,7 +122,7 @@ pub async fn player_loop(
                                 info!("Starting first track in queue");
                                 CurrentTrackEvent(Some(track.track.clone())).emit(&app_handle).unwrap();
                                 PlaybackStateEvent(true).emit(&app_handle).unwrap();
-                                if let Err(e) = track.start_playback(&device, command_tx.clone(), paused.clone()) {
+                                if let Err(e) = track.start_playback(&device, command_tx.clone(), paused.clone(), app_handle.clone()) {
                                     error!("Failed to start track: {}", e);
                                 } else {
                                     current_track = Some(track);
@@ -150,7 +150,7 @@ pub async fn player_loop(
                         if is_playing {
                             if let Some(mut track) = queue.lock().await.deque() {
                                 CurrentTrackEvent(Some(track.track.clone())).emit(&app_handle).unwrap();
-                                if let Err(e) = track.start_playback(&device, command_tx.clone(), paused.clone()) {
+                                if let Err(e) = track.start_playback(&device, command_tx.clone(), paused.clone(), app_handle.clone()) {
                                     error!("Failed to start next track: {}", e);
                                 } else {
                                     current_track = Some(track);
@@ -171,7 +171,7 @@ pub async fn player_loop(
                         if is_playing {
                             if let Some(mut track) = played.lock().await.pop() {
                                 CurrentTrackEvent(Some(track.track.clone())).emit(&app_handle).unwrap();
-                                if let Err(e) = track.start_playback(&device, command_tx.clone(), paused.clone()) {
+                                if let Err(e) = track.start_playback(&device, command_tx.clone(), paused.clone(), app_handle.clone()) {
                                     error!("Failed to start next track: {}", e);
                                 } else {
                                     current_track = Some(track);

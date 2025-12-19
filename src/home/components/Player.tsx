@@ -21,7 +21,7 @@ export function Player() {
       setIsPlaying(event.payload);
     });
 
-    const unlistenPosition = events.playbackPositionEvent.listen((event) => {
+    const unlistenPosition = events.playbackProgressEvent.listen((event) => {
       setCurrentPosition(event.payload);
     });
 
