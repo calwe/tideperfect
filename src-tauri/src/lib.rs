@@ -1,5 +1,5 @@
 use std::env;
-use dotenv::dotenv;
+use dotenvy::dotenv;
 #[cfg(debug_assertions)]
 use specta_typescript::BigIntExportBehavior;
 use tauri::{async_runtime::Mutex, Manager};
@@ -20,18 +20,18 @@ mod utils;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    dotenv().ok();
-
     #[cfg(feature = "devtools")]
     let devtools = tauri_plugin_devtools::init();
+
+    dotenv().ok();
+
+    let client_id = env::var("TIDAL_CLIENT_ID").unwrap_or(dotenvy_macro::dotenv!("TIDAL_CLIENT_ID").to_owned());
+    let client_secret = env::var("TIDAL_CLIENT_SECRET").unwrap_or(dotenvy_macro::dotenv!("TIDAL_CLIENT_SECRET").to_owned());
 
     #[cfg(not(feature = "devtools"))]
     tracing_subscriber::fmt()
         .with_env_filter(EnvFilter::from_default_env())
         .init();
-
-    let client_id = env::var("TIDAL_CLIENT_ID").expect("TIDAL_CLIENT_ID must be set");
-    let client_secret = env::var("TIDAL_CLIENT_SECRET").expect("TIDAL_CLIENT_SECRET must be set");
 
     let specta_builder = Builder::<tauri::Wry>::new()
         .commands(collect_commands![
