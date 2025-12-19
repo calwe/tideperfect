@@ -46,7 +46,7 @@ export default function Home() {
   }
 
   return (
-    <div className="h-screen m-5 flex flex-col gap-5">
+    <div className="m-5 flex flex-col gap-5">
       <div className="flex gap-5">
         <Button onClick={playQueue}>
           Play Queue

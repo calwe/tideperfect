@@ -4,17 +4,22 @@ use base64::prelude::*;
 use cpal::{traits::{DeviceTrait, StreamTrait}, Device, Sample, SampleFormat, SampleRate, Stream};
 use dash_mpd::MPD;
 use ringbuf::{traits::{Consumer, Observer, Split}, CachingCons, CachingProd, HeapRb};
-use serde::{Deserialize};
+use serde::{Deserialize, Serialize};
 use specta::Type;
+use tauri_specta::Event;
 use thiserror::Error;
 use tokio::{sync::mpsc, task::JoinHandle};
 use tidalrs::TidalClient;
 use tracing::{info, instrument, trace, error};
 
-use crate::{audio::{player::{PlayerCommand}, stream::{stream_dash_audio, stream_url}}, error::AppError};
+use crate::{audio::{player::PlayerCommand, stream::{stream_dash_audio, stream_url}}, error::AppError, models::track::Track};
+
+#[derive(Serialize, Deserialize, Debug, Clone, Type, Event)]
+pub struct CurrentTrackEvent(pub Option<Track>);
 
 pub struct PlayerTrack {
     pub metadata: PlayerTrackMetadata,
+    pub track: Track,
     pub buffer: Arc<HeapRb<i32>>,
     pub stream: Option<Stream>,
     pub mpd: Option<MPD>,
@@ -67,6 +72,7 @@ impl PlayerTrack {
     pub async fn fetch(client: &TidalClient, id: u64) -> Result<Self, AppError> {
         info!("Fetching track with id {id}");
         let stream = client.track_dash_playback_info(id, tidalrs::AudioQuality::HiResLossless).await?;
+        let track = client.track(id).await?.into();
 
         let manifest = BASE64_STANDARD.decode(stream.manifest)?;
         let manifest = String::from_utf8(manifest)?;
@@ -94,6 +100,7 @@ impl PlayerTrack {
 
                 Ok(Self {
                     metadata,
+                    track,
                     buffer,
                     stream: None,
                     mpd: None,
@@ -120,6 +127,7 @@ impl PlayerTrack {
                 Ok(Self {
                     metadata,
                     buffer,
+                    track,
                     stream: None,
                     mpd: Some(mpd),
                     url: None,
@@ -129,7 +137,7 @@ impl PlayerTrack {
         }
     }
 
-    pub fn start_playback(&mut self, device: &Device, player_tx: mpsc::Sender<PlayerCommand>) -> Result <(), PlayerTrackError> {
+    pub fn start_playback(&mut self, device: &Device, player_tx: mpsc::Sender<PlayerCommand>, paused: Arc<AtomicBool>) -> Result <(), PlayerTrackError> {
         info!("Playing track (ID #{})", self.metadata.id);
 
         self.stream = None;
@@ -164,7 +172,7 @@ impl PlayerTrack {
                 device.build_output_stream(
                     &supported_config.config(),
                     move |data, _| {
-                        let buffer_empty = Self::write_audio_data_16_bit(data, &mut consumer);
+                        let buffer_empty = Self::write_audio_data_16_bit(data, &mut consumer, paused.clone());
 
                         // If streaming is done AND buffer is empty AND we haven't sent the signal yet
                         if buffer_empty &&
@@ -186,7 +194,7 @@ impl PlayerTrack {
                 device.build_output_stream(
                     &supported_config.config(),
                     move |data, _| {
-                        let buffer_empty = Self::write_audio_data_24_bit(data, &mut consumer);
+                        let buffer_empty = Self::write_audio_data_24_bit(data, &mut consumer, paused.clone());
 
                         // If streaming is done AND buffer is empty AND we haven't sent the signal yet
                         if buffer_empty &&
@@ -251,11 +259,18 @@ impl PlayerTrack {
     fn write_audio_data_24_bit(
         output: &mut [i32],
         consumer: &mut CachingCons<Arc<HeapRb<i32>>>,
+        paused: Arc<AtomicBool>,
     ) -> bool {
         let mut i = 0;
         let mut buffer_was_empty = false;
 
         while i < output.len() {
+            if paused.load(Ordering::Relaxed) {
+                output[i] = i32::EQUILIBRIUM;
+                i += 1;
+                continue;
+            }
+
             if let Some(sample) = consumer.try_pop() {
                 output[i] = sample;
                 i += 1;
@@ -275,11 +290,18 @@ impl PlayerTrack {
     fn write_audio_data_16_bit(
         output: &mut [i16],
         consumer: &mut CachingCons<Arc<HeapRb<i32>>>,
+        paused: Arc<AtomicBool>,
     ) -> bool {
         let mut i = 0;
         let mut buffer_was_empty = false;
 
         while i < output.len() {
+            if paused.load(Ordering::Relaxed) {
+                output[i] = i16::EQUILIBRIUM;
+                i += 1;
+                continue;
+            }
+
             if let Some(sample) = consumer.try_pop() {
                 output[i] = sample.to_sample();
                 i += 1;

@@ -33,6 +33,7 @@ pub async fn queue_track(state: State<'_, Mutex<AppState>>, song_id: String) -> 
     let queue = state.player.queue.clone();
     let mut queue = queue.lock().await;
     queue.add(track);
+    state.player.play_queue().await?;
 
     Ok(())
 }
@@ -45,6 +46,35 @@ pub async fn play_queue(state: State<'_, Mutex<AppState>>) -> Result<(), AppErro
 
     state.player.play_queue().await?;
 
+    Ok(())
+}
+
+#[tauri::command]
+#[specta::specta]
+#[instrument(skip(state), err)]
+pub async fn skip_next(state: State<'_, Mutex<AppState>>) -> Result<(), AppError> {
+    let state = state.lock().await;
+
+    state.player.skip().await?;
+
+    Ok(())
+}
+
+#[tauri::command]
+#[specta::specta]
+#[instrument(skip(state), err)]
+pub async fn pause(state: State<'_, Mutex<AppState>>) -> Result<(), AppError> {
+    let state = state.lock().await;
+    state.player.pause().await?;
+    Ok(())
+}
+
+#[tauri::command]
+#[specta::specta]
+#[instrument(skip(state), err)]
+pub async fn resume(state: State<'_, Mutex<AppState>>) -> Result<(), AppError> {
+    let state = state.lock().await;
+    state.player.resume().await?;
     Ok(())
 }
 

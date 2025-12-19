@@ -3,13 +3,13 @@ use dotenv::dotenv;
 #[cfg(debug_assertions)]
 use specta_typescript::BigIntExportBehavior;
 use tauri::{async_runtime::Mutex, Manager};
-use tauri_specta::{collect_commands, Builder};
+use tauri_specta::{collect_commands, collect_events, Builder};
 use specta_typescript::Typescript;
 use tidalrs::{DeviceType, TidalClient};
 use tracing::trace;
 use tracing_subscriber::EnvFilter;
 
-use crate::{audio::player::Player, commands::*, state::AppState, utils::persistence::load_auth_token};
+use crate::{audio::player::Player, commands::*, models::queue, state::AppState, utils::persistence::load_auth_token};
 
 mod audio;
 mod commands;
@@ -38,8 +38,13 @@ pub fn run() {
             album::favourite_albums, album::album_tracks,
             auth::start_authorization, auth::authorize, auth::get_username, auth::logout,
             playback::play_track, playback::stop_track, playback::devices, playback::set_output_device,
-            playback::queue_track, playback::play_queue,
+            playback::queue_track, playback::play_queue, playback::skip_next, playback::pause, playback::resume,
             track::fetch_track,
+        ])
+        .events(collect_events![
+            queue::UpdatedQueueEvent,
+            audio::track::CurrentTrackEvent,
+            audio::player::PlaybackStateEvent,
         ]);
 
     #[cfg(debug_assertions)] // <- Only export on non-release builds
@@ -72,7 +77,7 @@ pub fn run() {
                 TidalClient::new(client_id.clone()).with_device_type(DeviceType::Browser)
             };
 
-            let player = Player::init_default_output()?;
+            let player = Player::init_default_output(app.handle().clone())?;
 
             app.manage(Mutex::new(AppState {
                 client,

@@ -6,8 +6,10 @@ interface QualityBadgeProps {
 
 export default function QualityBadge({ quality }: QualityBadgeProps) {
   switch (quality) {
+    case "lossless":
     case "LOSSLESS":
       return <Badge className="bg-teal-500">HIGH</Badge>
+    case "hiResLossless":
     case "HIRES_LOSSLESS":
       return <Badge className="bg-amber-300">MAX</Badge>
     default:

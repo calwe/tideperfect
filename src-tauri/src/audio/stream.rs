@@ -61,9 +61,10 @@ pub async fn stream_dash_audio(mut producer: CachingProd<Arc<HeapRb<i32>>>, mpd:
         let mut complete_data = init_data.clone();
         complete_data.extend_from_slice(&seg_data);
 
-        let mut samples = decode_segment(complete_data)?.into_iter();
+        let mut samples = decode_segment(complete_data)?.into_iter().peekable();
 
-        while producer.push_iter(&mut samples) != 0 {
+        while samples.peek().is_some() {
+            producer.push_iter(&mut samples);
             tokio::time::sleep(Duration::from_millis(50)).await;
         }
     }

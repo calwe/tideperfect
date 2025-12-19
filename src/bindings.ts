@@ -101,6 +101,30 @@ async playQueue() : Promise<Result<null, AppError>> {
     else return { status: "error", error: e  as any };
 }
 },
+async skipNext() : Promise<Result<null, AppError>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("skip_next") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async pause() : Promise<Result<null, AppError>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("pause") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async resume() : Promise<Result<null, AppError>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("resume") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async fetchTrack(songId: string) : Promise<Result<Track, AppError>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("fetch_track", { songId }) };
@@ -114,6 +138,15 @@ async fetchTrack(songId: string) : Promise<Result<Track, AppError>> {
 /** user-defined events **/
 
 
+export const events = __makeEvents__<{
+currentTrackEvent: CurrentTrackEvent,
+playbackStateEvent: PlaybackStateEvent,
+updatedQueueEvent: UpdatedQueueEvent
+}>({
+currentTrackEvent: "current-track-event",
+playbackStateEvent: "playback-state-event",
+updatedQueueEvent: "updated-queue-event"
+})
 
 /** user-defined constants **/
 
@@ -141,11 +174,13 @@ export type AudioQuality =
  */
 "hiResLossless"
 export type AuthError = "NotLoggedIn" | "NoDeviceCode"
+export type CurrentTrackEvent = Track | null
 export type MediaMetadata = { 
 /**
  * Tags associated with the media
  */
 tags?: string[] }
+export type PlaybackStateEvent = boolean
 export type PlayerError = "NoDefaultDevice" | "BackgroundThreadDied"
 export type PlayerTrackError = { UnsupportedManifest: string } | { UnsupportedConfig: PlayerTrackMetadata } | { SupportedStreamConfigs: string } | { UnsupportedSampleSize: number }
 export type PlayerTrackMetadata = { id: string; sample_rate: number; sample_size: number; channels: number }
@@ -194,6 +229,7 @@ url: string | null;
  * Beats per minute (BPM) of the track
  */
 bpm: number | null; upload: boolean | null }
+export type UpdatedQueueEvent = Track[]
 
 /** tauri-specta globals **/
 

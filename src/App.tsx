@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import Home from './home/Home';
 import Login from './login/Login';
 import Album from './album/Album';
+import Layout from './Layout';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -19,9 +20,11 @@ function App() {
       <main>
         <HashRouter>
           <Routes>
-            <Route path="/" element={<Home />} />
             <Route path="/login" element={<Login />} />
-            <Route path="/album/:albumId" element={<Album />} />
+            <Route element={<Layout />}>
+              <Route path="/" element={<Home />} />
+              <Route path="/album/:albumId" element={<Album />} />
+            </Route>
           </Routes>
         </HashRouter>
       </main>
