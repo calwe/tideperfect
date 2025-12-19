@@ -1,3 +1,5 @@
+use base64::prelude::*;
+use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use specta::Type;
 
@@ -14,8 +16,8 @@ pub struct Track {
     /// Track number within the album
     pub track_number: u32,
 
-    // /// Album information for this track
-    // pub album: AlbumSummary,
+    /// Album information for this track
+    pub album: AlbumSummary,
 
     // /// Audio quality level available for this album for standard streaming
     // ///
@@ -49,11 +51,29 @@ pub struct Track {
     pub upload: Option<bool>,
 }
 
+#[derive(Debug, Serialize, Deserialize, Clone, Type)]
+#[serde(rename_all = "camelCase")]
+pub struct AlbumSummary {
+    /// Unique album identifier
+    pub id: u64,
+    /// Album title
+    pub title: String,
+    /// Album cover image
+    pub cover: Option<String>,
+    /// Album release date
+    pub release_date: Option<String>,
+    /// Dominant color extracted from the cover art
+    pub vibrant_color: Option<String>,
+    /// Video cover identifier (if available)
+    pub video_cover: Option<String>,
+}
+
 impl From<tidalrs::Track> for Track {
     fn from(value: tidalrs::Track) -> Self {
         Self {
             id: value.id,
             track_number: value.track_number,
+            album: value.album.into(),
             audio_quality: value.audio_quality.into(),
             media_metadata: value.media_metadata.map(|t| t.into()),
             duration: value.duration,
@@ -65,6 +85,38 @@ impl From<tidalrs::Track> for Track {
             url: value.url,
             bpm: value.bpm,
             upload: value.upload,
+        }
+    }
+}
+
+impl AlbumSummary {
+    pub fn cover_url(&self, height: u16, width: u16) -> Option<String> {
+        self.cover.as_ref().map(|cover| {
+            let cover_path = cover.replace('-', "/");
+            format!("https://resources.tidal.com/images/{cover_path}/{height}x{width}.jpg")
+        })
+    }
+
+    pub async fn cover_image(&self, height: u16, width: u16) -> Option<String> {
+        if let Some(url) = self.cover_url(height, width) {
+            let response = reqwest::get(url).await.unwrap().bytes().await.unwrap();
+            let base64 = BASE64_URL_SAFE.encode(response);
+            Some(format!("data:image/jpeg;base64,{base64}"))
+        } else {
+            None
+        }
+    }
+}
+
+impl From<tidalrs::AlbumSummary> for AlbumSummary {
+    fn from(value: tidalrs::AlbumSummary) -> Self {
+        Self {
+            id: value.id,
+            title: value.title,
+            cover: value.cover,
+            release_date: value.release_date,
+            vibrant_color: value.vibrant_color,
+            video_cover: value.video_cover,
         }
     }
 }

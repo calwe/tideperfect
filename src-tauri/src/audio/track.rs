@@ -72,7 +72,7 @@ impl PlayerTrack {
     pub async fn fetch(client: &TidalClient, id: u64) -> Result<Self, AppError> {
         info!("Fetching track with id {id}");
         let stream = client.track_dash_playback_info(id, tidalrs::AudioQuality::HiResLossless).await?;
-        let track = client.track(id).await?.into();
+        let track: Track = client.track(id).await?.into();
 
         let manifest = BASE64_STANDARD.decode(stream.manifest)?;
         let manifest = String::from_utf8(manifest)?;

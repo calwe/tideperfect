@@ -7,11 +7,13 @@ use strum_macros::AsRefStr;
 
 use crate::{commands::{album, auth::AuthError}, error::AppError, models::track::Track, state::AppState};
 
+// TODO: return full album
 #[derive(Debug, Type, Clone, Serialize, Deserialize)]
 pub struct Album {
     id: String,
     title: String,
     quality: String,
+    image: Option<String>,
 }
 
 #[tauri::command]
@@ -28,6 +30,7 @@ pub async fn favourite_albums(state: State<'_, Mutex<AppState>>) -> Result<Vec<A
                 id: album.id.to_string(),
                 title: album.title,
                 quality: album.audio_quality.as_ref().to_string(),
+                image: album.cover,
             }
         })
         .collect())

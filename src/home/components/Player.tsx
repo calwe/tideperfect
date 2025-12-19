@@ -54,6 +54,11 @@ export function Player() {
     return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
 
+  const imageUrl = (identifier: string) => {
+    const path = identifier.replace(/-/g, '/');
+    return `https://resources.tidal.com/images/${path}/80x80.jpg`
+  }
+
   if (!currentTrack) {
     return (
       <div className="border-t border-border p-4">
@@ -72,7 +77,9 @@ export function Player() {
   return (
     <div className="border-t border-border p-4 flex flex-col gap-3">
       <div className="flex items-center gap-3">
-        <div className="w-16 h-16 bg-muted rounded shrink-0" />
+        <div className="w-16 h-16 bg-muted rounded shrink-0" >
+          <img className="object-fill rounded" src={imageUrl(currentTrack.album.cover)} />
+        </div>
         <div className="flex-1 min-w-0">
           <p className="text-sm font-medium truncate">{currentTrack.title}</p>
           <div className="flex items-center gap-2 mt-1">

@@ -162,7 +162,32 @@ updatedQueueEvent: "updated-queue-event"
 
 /** user-defined types **/
 
-export type Album = { id: string; title: string; quality: string }
+export type Album = { id: string; title: string; quality: string; image: string | null }
+export type AlbumSummary = { 
+/**
+ * Unique album identifier
+ */
+id: string; 
+/**
+ * Album title
+ */
+title: string; 
+/**
+ * Album cover image
+ */
+cover: string | null; 
+/**
+ * Album release date
+ */
+releaseDate: string | null; 
+/**
+ * Dominant color extracted from the cover art
+ */
+vibrantColor: string | null; 
+/**
+ * Video cover identifier (if available)
+ */
+videoCover: string | null }
 export type AppError = { Auth: AuthError } | { PlayerTrack: PlayerTrackError } | { Player: PlayerError } | { Tauri: string } | { Io: string } | { Serde: string } | { Tidal: string } | { Utf8: string } | { DashMpd: string } | { Base64Decode: string } | { StringToInt: string } | { Other: string }
 export type AudioQuality = 
 /**
@@ -201,6 +226,10 @@ id: string;
  * Track number within the album
  */
 trackNumber: number; 
+/**
+ * Album information for this track
+ */
+album: AlbumSummary; 
 /**
  * Higher quality streams may be available than is indicated here when using MPEG-DASH for playback.
  */

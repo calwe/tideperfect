@@ -56,7 +56,7 @@ export default function Home() {
         </Button>
       </div>
       <div className="flex flex-wrap gap-5">
-        {albums?.map(album => <AlbumCard id={album.id} title={album.title} quality={album.quality}/>)}
+        {albums?.map(album => <AlbumCard id={album.id} title={album.title} quality={album.quality} image={album.image} />)}
       </div>
     </div>
   );
