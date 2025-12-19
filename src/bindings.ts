@@ -125,6 +125,14 @@ async resume() : Promise<Result<null, AppError>> {
     else return { status: "error", error: e  as any };
 }
 },
+async previous() : Promise<Result<null, AppError>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("previous") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async fetchTrack(songId: string) : Promise<Result<Track, AppError>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("fetch_track", { songId }) };

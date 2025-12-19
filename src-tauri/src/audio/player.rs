@@ -13,6 +13,7 @@ use crate::{audio::track::{CurrentTrackEvent, PlayerTrack}, models::queue::Queue
 pub struct Player {
     control_tx: mpsc::Sender<PlayerCommand>,
     pub queue: Arc<Mutex<Queue>>,
+    pub played: Arc<Mutex<Vec<PlayerTrack>>>,
 }
 
 #[derive(Debug, Clone, Type, Event, Serialize, Deserialize)]
@@ -22,8 +23,8 @@ pub enum PlayerCommand {
     Play,
     Pause,
     Resume,
-    TrackFinished,
     Skip,
+    Previous,
     SwitchDevice(String),
 }
 
@@ -43,13 +44,23 @@ impl Player {
         trace!("Using device with name: {:?}", device.name());
 
         let queue = Arc::new(Mutex::new(Queue::new(app_handle.clone())));
+        let played = Arc::new(Mutex::new(Vec::new()));
         let (control_tx, control_rx) = mpsc::channel(32);
 
-        tokio::spawn(player_loop(app_handle, control_rx, control_tx.clone(), host, device.clone(), queue.clone()));
+        tokio::spawn(player_loop(
+                app_handle, 
+                control_rx, 
+                control_tx.clone(),
+                host, 
+                device.clone(),
+                queue.clone(),
+                played.clone()
+        ));
 
         Ok(Self {
             control_tx,
             queue,
+            played,
         })
     }
 
@@ -76,6 +87,12 @@ impl Player {
             .map_err(|_| PlayerError::BackgroundThreadDied)?;
         Ok(())
     }
+
+    pub async fn previous(&self) -> Result<(), PlayerError> {
+        self.control_tx.send(PlayerCommand::Previous).await
+            .map_err(|_| PlayerError::BackgroundThreadDied)?;
+        Ok(())
+    }
 }
 
 pub async fn player_loop(
@@ -85,6 +102,7 @@ pub async fn player_loop(
     host: Host,
     default_device: Device,
     queue: Arc<Mutex<Queue>>,
+    played: Arc<Mutex<Vec<PlayerTrack>>>,
 ) {
     let mut current_track: Option<PlayerTrack> = None;
     let mut is_playing = false;
@@ -122,11 +140,11 @@ pub async fn player_loop(
                         paused.store(false, Ordering::Relaxed);
                         PlaybackStateEvent(true).emit(&app_handle).unwrap();
                     }
-                    PlayerCommand::TrackFinished => {
-                        info!("Track finished, starting next track");
-
+                    PlayerCommand::Skip => {
+                        info!("Skipping current track");
                         if let Some(mut track) = current_track.take() {
                             track.stop_track();
+                            played.lock().await.push(track);
                         }
 
                         if is_playing {
@@ -144,15 +162,14 @@ pub async fn player_loop(
                             }
                         }
                     }
-                    PlayerCommand::Skip => {
-                        // TODO: This should not deque from queue, but instead just move on?
-                        info!("Skipping current track");
+                    PlayerCommand::Previous => {
+                        info!("Playing previous track");
                         if let Some(mut track) = current_track.take() {
                             track.stop_track();
                         }
 
                         if is_playing {
-                            if let Some(mut track) = queue.lock().await.deque() {
+                            if let Some(mut track) = played.lock().await.pop() {
                                 CurrentTrackEvent(Some(track.track.clone())).emit(&app_handle).unwrap();
                                 if let Err(e) = track.start_playback(&device, command_tx.clone(), paused.clone()) {
                                     error!("Failed to start next track: {}", e);
@@ -160,7 +177,7 @@ pub async fn player_loop(
                                     current_track = Some(track);
                                 }
                             } else {
-                                info!("Queue is empty, stopping playback");
+                                info!("No previous track, stopping playback");
                                 CurrentTrackEvent(None).emit(&app_handle).unwrap();
                                 is_playing = false;
                             }

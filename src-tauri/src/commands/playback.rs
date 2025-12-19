@@ -63,6 +63,17 @@ pub async fn skip_next(state: State<'_, Mutex<AppState>>) -> Result<(), AppError
 #[tauri::command]
 #[specta::specta]
 #[instrument(skip(state), err)]
+pub async fn previous(state: State<'_, Mutex<AppState>>) -> Result<(), AppError> {
+    let state = state.lock().await;
+
+    state.player.previous().await?;
+
+    Ok(())
+}
+
+#[tauri::command]
+#[specta::specta]
+#[instrument(skip(state), err)]
 pub async fn pause(state: State<'_, Mutex<AppState>>) -> Result<(), AppError> {
     let state = state.lock().await;
     state.player.pause().await?;

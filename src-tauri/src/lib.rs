@@ -39,6 +39,7 @@ pub fn run() {
             auth::start_authorization, auth::authorize, auth::get_username, auth::logout,
             playback::play_track, playback::stop_track, playback::devices, playback::set_output_device,
             playback::queue_track, playback::play_queue, playback::skip_next, playback::pause, playback::resume,
+            playback::previous,
             track::fetch_track,
         ])
         .events(collect_events![

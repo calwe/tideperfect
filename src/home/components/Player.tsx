@@ -44,9 +44,9 @@ export function Player() {
     await commands.skipNext();
   };
 
-  // const skipPrevious = async () => {
-  //   await commands.skipPrevious();
-  // };
+  const skipPrevious = async () => {
+    await commands.previous();
+  };
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -110,6 +110,7 @@ export function Player() {
           variant="ghost"
           size="icon"
           className="h-8 w-8"
+          onClick={skipPrevious}
         >
           <SkipBack className="h-4 w-4" />
         </Button>

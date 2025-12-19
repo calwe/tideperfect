@@ -179,7 +179,7 @@ impl PlayerTrack {
                            streaming_done_clone.load(Ordering::Relaxed) &&
                            !track_finished_sent_clone.swap(true, Ordering::Relaxed) {
                             info!("Track playback complete (buffer empty and streaming done)");
-                            let _ = player_tx_clone.try_send(PlayerCommand::TrackFinished);
+                            let _ = player_tx_clone.try_send(PlayerCommand::Skip);
                         }
                     },
                     err_fn,
@@ -201,7 +201,7 @@ impl PlayerTrack {
                            streaming_done_clone.load(Ordering::Relaxed) &&
                            !track_finished_sent_clone.swap(true, Ordering::Relaxed) {
                             info!("Track playback complete (buffer empty and streaming done)");
-                            let _ = player_tx_clone.try_send(PlayerCommand::TrackFinished);
+                            let _ = player_tx_clone.try_send(PlayerCommand::Skip);
                         }
                     },
                     err_fn,
@@ -224,6 +224,9 @@ impl PlayerTrack {
     }
 
     pub fn stop_track(&mut self) {
+        let buffer = Arc::new(HeapRb::<i32>::new(BUFFER_SIZE_SECONDS * self.metadata.sample_rate as usize));
+
+        self.buffer = buffer;
         self.stream = None;
     }
 
