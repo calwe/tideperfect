@@ -65,7 +65,7 @@ pub async fn stream_dash_audio(mut producer: CachingProd<Arc<HeapRb<i32>>>, mpd:
 
         while samples.peek().is_some() {
             producer.push_iter(&mut samples);
-            tokio::time::sleep(Duration::from_millis(50)).await;
+            tokio::time::sleep(Duration::from_millis(5)).await;
         }
     }
 
@@ -205,7 +205,6 @@ pub async fn stream_url(mut producer: CachingProd<Arc<HeapRb<i32>>>, url: String
         let probed = symphonia::default::get_probe()
             .format(&hint, mss, &FormatOptions::default(), &MetadataOptions::default())
             .map_err(|e| e.to_string())?;
-        trace!("Probed successfully!");
 
         let mut format = probed.format;
 
@@ -243,9 +242,10 @@ pub async fn stream_url(mut producer: CachingProd<Arc<HeapRb<i32>>>, url: String
             if let Some(ref mut buf) = sample_buf {
                 buf.copy_interleaved_ref(decoded);
 
-                let mut samples = buf.samples().iter().copied();
-                while producer.push_iter(&mut samples) != 0 {
-                    std::thread::sleep(Duration::from_millis(50));
+                let mut samples = buf.samples().iter().copied().peekable();
+                while samples.peek().is_some() {
+                    producer.push_iter(&mut samples);
+                    std::thread::sleep(Duration::from_millis(5));
                 }
             }
         }

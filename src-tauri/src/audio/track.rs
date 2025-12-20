@@ -11,7 +11,7 @@ use tauri_specta::Event;
 use thiserror::Error;
 use tokio::{sync::mpsc, task::JoinHandle, time::sleep};
 use tidalrs::TidalClient;
-use tracing::{info, instrument, trace, error};
+use tracing::{error, info, instrument, trace, warn};
 
 use crate::{audio::{player::PlayerCommand, stream::{stream_dash_audio, stream_url}}, error::AppError, models::track::Track};
 
@@ -341,6 +341,7 @@ impl PlayerTrack {
                 samples_played.fetch_add(1, Ordering::Relaxed);
                 i += 1;
             } else {
+                warn!("Buffer empty!");
                 buffer_was_empty = true;
                 for sample in &mut output[i..] {
                     *sample = i16::EQUILIBRIUM;
