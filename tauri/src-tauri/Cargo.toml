@@ -1,0 +1,42 @@
+[package]
+name = "tideperfect_gui"
+version = "0.1.0"
+description = "A Tauri App"
+authors = ["you"]
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+# The `_lib` suffix may seem redundant but it is necessary
+# to make the lib name unique and wouldn't conflict with the bin name.
+# This seems to be only an issue on Windows, see https://github.com/rust-lang/cargo/issues/8519
+name = "tideperfect_gui_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2.0", features = [] }
+tauri-plugin-opener = "2"
+serde = { version = "1", features = ["derive"] }
+serde_with = "3.16.1"
+serde_json = "1"
+specta = "=2.0.0-rc.22"
+specta-typescript = "0.0.9"
+tauri-specta = { version = "=2.0.0-rc.21", features = ["derive", "typescript"] }
+structural-convert = "0.13.0"
+tracing = "0.1.43"
+tracing-subscriber = { version = "0.3.22", features = ["env-filter"] }
+tokio = "1.48.0"
+strum = { version = "0.27.2", features = ["strum_macros"] }
+strum_macros = "0.27.2"
+tauri-plugin-devtools = { version = "2.0.0", optional = true }
+tideperfect = { path = "../../tideperfect/" }
+snafu = "0.8.9"
+
+[features]
+default = []
+devtools = ["dep:tauri-plugin-devtools"]
+
