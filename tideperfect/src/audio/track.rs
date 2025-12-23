@@ -7,7 +7,7 @@ use ringbuf::{traits::{Consumer, Observer, Split}, CachingCons, CachingProd, Hea
 use serde::Deserialize;
 use snafu::{ResultExt, Snafu};
 use tokio::{sync::{broadcast, mpsc}, task::JoinHandle, time::sleep};
-use tidalrs::{TidalClient, Track as TidalTrack};
+use tidalrs::{TidalClient, Track as TidalTrack, TrackDashPlaybackInfo};
 use tracing::{error, info, instrument, trace, warn};
 
 use crate::{audio::{player::{PlayerCommand, PlayerEvent}, stream::{stream_dash_audio, stream_url}}, Event};
@@ -53,13 +53,24 @@ struct FlacManifest {
 const BUFFER_SIZE_SECONDS: usize = 5;
 
 impl Track {
+
     #[instrument(skip(client), err)]
     pub async fn fetch(client: &TidalClient, id: u64) -> Result<Self, TrackError> {
         info!("Fetching track with id {id}");
-        let stream = client.track_dash_playback_info(id, tidalrs::AudioQuality::HiResLossless).await
-            .context(TidalSnafu)?;
         let track = client.track(id).await.context(TidalSnafu)?;
+        Self::fetch_from_track(client, &track).await
+    }
 
+    #[instrument(skip_all, err)]
+    pub async fn fetch_from_track(client: &TidalClient, track: &TidalTrack) -> Result<Self, TrackError> {
+        info!("Fetching track from supplied tidal track");
+        let stream = client.track_dash_playback_info(track.id, tidalrs::AudioQuality::HiResLossless).await
+            .context(TidalSnafu)?;
+
+        Self::parse_manifest(stream, track)
+    }
+
+    fn parse_manifest(stream: TrackDashPlaybackInfo, track: &TidalTrack) -> Result<Self, TrackError> {
         let manifest = BASE64_STANDARD.decode(stream.manifest).context(Base64Snafu)?;
         let manifest = String::from_utf8(manifest).context(UTF8Snafu)?;
 
@@ -76,7 +87,7 @@ impl Track {
                 let sample_size = 16;
 
                 let metadata = TrackMetadata {
-                    id,
+                    id: track.id,
                     sample_rate,
                     sample_size,
                     channels,
@@ -86,7 +97,7 @@ impl Track {
 
                 Ok(Self {
                     metadata,
-                    track,
+                    track: track.clone(),
                     buffer,
                     samples_played: Arc::new(AtomicU64::new(0)),
                     stream: None,
@@ -104,7 +115,7 @@ impl Track {
                 let sample_size = 24;
 
                 let metadata = TrackMetadata {
-                    id,
+                    id: track.id,
                     sample_rate,
                     sample_size,
                     channels,
@@ -116,7 +127,7 @@ impl Track {
                     metadata,
                     buffer,
                     samples_played: Arc::new(AtomicU64::new(0)),
-                    track,
+                    track: track.clone(),
                     stream: None,
                     mpd: Some(mpd),
                     url: None,

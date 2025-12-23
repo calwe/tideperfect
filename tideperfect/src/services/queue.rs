@@ -36,6 +36,19 @@ impl QueueService {
 
         Ok(())
     }
+
+    #[instrument(skip(self))]
+    pub async fn queue_album(&self, id: u64) -> Result<(), QueueServiceError> {
+        trace!("Queueing album #{id}");
+        let album = self.tidal_client.album_tracks(id, None, None).await.context(FetchAlbumTracksSnafu { id })?;
+        for track in album.items {
+            let track = Track::fetch_from_track(&self.tidal_client, &track).await
+                .context(FetchTrackSnafu { id: track.id })?;
+            self.queue.lock().await.add(track).context(AddTrackSnafu { id })?;
+        }
+
+        Ok(())
+    }
 }
 
 #[derive(Debug, Snafu)]
@@ -44,6 +57,11 @@ pub enum QueueServiceError {
     FetchTrack {
         id: u64,
         source: TrackError,
+    },
+    #[snafu(display("Failed to fetch album tracks: {id}"))]
+    FetchAlbumTracks {
+        id: u64,
+        source: tidalrs::Error,
     },
     #[snafu(display("Failed to add #{id} to queue"))]
     AddTrack {

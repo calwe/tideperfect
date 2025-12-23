@@ -26,7 +26,7 @@ pub fn run() -> Result<(), TidePerfectError> {
         .commands(collect_commands![
             auth::is_logged_in, auth::login,
             album::favourite_albums, album::album_tracks,
-            queue::queue_track,
+            queue::queue_track, queue::queue_album,
             player::play, player::pause, player::skip, player::previous,
         ])
         .events(collect_events![

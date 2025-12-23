@@ -45,6 +45,14 @@ async queueTrack(id: string) : Promise<Result<null, ErrorDTO>> {
     else return { status: "error", error: e  as any };
 }
 },
+async queueAlbum(id: string) : Promise<Result<null, ErrorDTO>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("queue_album", { id }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async play() : Promise<Result<null, ErrorDTO>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("play") };

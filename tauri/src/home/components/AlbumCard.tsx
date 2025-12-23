@@ -16,8 +16,13 @@ interface AlbumCardProps {
 export default function AlbumCard({ id, title, quality, image }: AlbumCardProps) {
   const navigate = useNavigate();
 
-  const onClick = async () => {
+  const open = async () => {
     navigate(`/album/${id}`);
+  }
+
+  const queue = async () => {
+    await commands.queueAlbum(id);
+    await commands.play();
   }
 
   const imageUrl = (identifier: string) => {
@@ -26,7 +31,7 @@ export default function AlbumCard({ id, title, quality, image }: AlbumCardProps)
   }
 
   return (
-    <Card className="p-4 flex flex-col gap-4 items-center" onClick={onClick} >
+    <Card className="p-4 flex flex-col gap-4 items-center" >
       <h1>{title} ({id})</h1>
       <div className="w-36 h-36 rounded">
         <img className="object-stretch rounded" src={imageUrl(image)} />
@@ -34,6 +39,8 @@ export default function AlbumCard({ id, title, quality, image }: AlbumCardProps)
       <div className="flex justify-around">
         <QualityBadge quality={quality} />
       </div>
+      <Button onClick={queue}>Queue</Button>
+      <Button onClick={open}>View Tracks</Button>
     </Card>
   )
 }

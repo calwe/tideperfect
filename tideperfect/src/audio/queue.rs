@@ -23,7 +23,7 @@ impl Queue {
         }
     }
 
-    #[instrument]
+    #[instrument(skip(self))]
     pub fn add(&mut self, track: Track) -> Result<(), QueueError> {
         trace!("Adding {track:?} to queue");
 
@@ -35,6 +35,7 @@ impl Queue {
         Ok(())
     }
 
+    #[instrument(skip(self))]
     pub fn deque(&mut self) -> Result<Option<Track>, QueueError> {
         let result = self.tracks.pop_front();
 

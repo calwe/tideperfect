@@ -39,3 +39,16 @@ pub async fn queue_track(state: State<'_, Mutex<TidePerfect>>, id: String) -> Re
     Ok(())
 }
 
+#[tauri::command]
+#[specta::specta]
+#[instrument(skip(state))]
+pub async fn queue_album(state: State<'_, Mutex<TidePerfect>>, id: String) -> Result<(), ErrorDTO> {
+    trace!("Got command: queue_album({id})");
+
+    let state = state.lock().await;
+    let id = id.parse()?;
+    state.queue_service.queue_album(id).await?;
+
+    Ok(())
+}
+
