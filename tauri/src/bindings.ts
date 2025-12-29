@@ -37,6 +37,22 @@ async albumTracks(id: string) : Promise<Result<TrackDTO[], ErrorDTO>> {
     else return { status: "error", error: e  as any };
 }
 },
+async userPlaylists() : Promise<Result<PlaylistDTO[], ErrorDTO>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("user_playlists") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async playlistTracks(id: string) : Promise<Result<TrackDTO[], ErrorDTO>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("playlist_tracks", { id }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async queueTrack(id: string) : Promise<Result<null, ErrorDTO>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("queue_track", { id }) };
@@ -356,6 +372,107 @@ export type MediaMetadataDTO = {
  * Tags associated with the media
  */
 tags?: string[] }
+/**
+ * Information about the creator of a playlist.
+ * 
+ * This structure contains details about who created the playlist,
+ * which can be a user or system-generated content.
+ */
+export type PlaylistCreatorDTO = { 
+/**
+ * The user ID of the playlist creator.
+ * Will be None or zero if the playlist creator is not a known user.
+ */
+id?: string | null }
+/**
+ * Represents a playlist from the Tidal catalog.
+ * 
+ * This structure contains all available information about a playlist,
+ * including metadata, statistics, and modification capabilities.
+ */
+export type PlaylistDTO = { 
+/**
+ * Unique playlist identifier (UUID format)
+ */
+uuid: string; 
+/**
+ * Playlist title
+ */
+title: string; 
+/**
+ * Tidal URL for the playlist
+ */
+url?: string | null; 
+/**
+ * Information about the playlist creator
+ */
+creator: PlaylistCreatorDTO; 
+/**
+ * Playlist description
+ */
+description?: string; 
+/**
+ * Total number of tracks in the playlist
+ */
+numberOfTracks: number; 
+/**
+ * Total number of videos in the playlist
+ */
+numberOfVideos: number; 
+/**
+ * Total duration of the playlist in seconds
+ */
+duration: number; 
+/**
+ * Popularity score for the playlist
+ */
+popularity: number; 
+/**
+ * ISO timestamp when the playlist was last updated
+ */
+lastUpdated: string; 
+/**
+ * ISO timestamp when the playlist was created
+ */
+created: string; 
+/**
+ * ISO timestamp when the last item was added to the playlist
+ */
+lastItemAddedAt: string | null; 
+/**
+ * Type of playlist (e.g., "USER", "EDITORIAL")
+ */
+type: string | null; 
+/**
+ * Whether the playlist is publicly visible
+ */
+publicPlaylist: boolean; 
+/**
+ * Playlist cover image identifier
+ * 
+ * Use image_url() to get the full URL of the image
+ */
+image: string | null; 
+/**
+ * Square version of the playlist cover image
+ * 
+ * Use square_image_url() to get the full URL of the square image
+ */
+squareImage: string | null; 
+/**
+ * Custom image URL for the playlist
+ */
+customImageUrl: string | null; 
+/**
+ * Artists promoted in this playlist
+ */
+promotedArtists: ArtistSummaryDTO[] | null; 
+/**
+ * ETag for concurrency control when modifying the playlist
+ * 
+ * This is needed for adding or removing tracks from the playlist
+ */
+etag: string | null }
 export type QueueUpdated = TrackDTO[]
 /**
  * Represents a track from the Tidal catalog.

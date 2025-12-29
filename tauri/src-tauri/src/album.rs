@@ -3,7 +3,7 @@ use tideperfect::TidePerfect;
 use tokio::sync::Mutex;
 use tracing::instrument;
 
-use crate::{dtos::{album::FavouriteAlbumDTO, track::TrackDTO}, error::ErrorDTO};
+use crate::{dtos::{album::FavouriteAlbumDTO, playlist::PlaylistDTO, track::TrackDTO}, error::ErrorDTO};
 
 #[tauri::command]
 #[specta::specta]
@@ -25,6 +25,30 @@ pub async fn album_tracks(state: State<'_, Mutex<TidePerfect>>, id: String) -> R
     let id = id.parse()?;
     let album_tracks = state.album_service.album_tracks(id).await?;
     Ok(album_tracks.into_iter()
+        .map(|x| x.into())
+        .collect()
+    )
+}
+
+#[tauri::command]
+#[specta::specta]
+#[instrument(skip(state))]
+pub async fn user_playlists(state: State<'_, Mutex<TidePerfect>>) -> Result<Vec<PlaylistDTO>, ErrorDTO> {
+    let state = state.lock().await;
+    let user_playlists = state.album_service.user_playlists().await?;
+    Ok(user_playlists.into_iter()
+        .map(|x| x.into())
+        .collect()
+    )
+}
+
+#[tauri::command]
+#[specta::specta]
+#[instrument(skip(state))]
+pub async fn playlist_tracks(state: State<'_, Mutex<TidePerfect>>, id: String) -> Result<Vec<TrackDTO>, ErrorDTO> {
+    let state = state.lock().await;
+    let playlist_tracks = state.album_service.playlist_tracks(&id).await?;
+    Ok(playlist_tracks.into_iter()
         .map(|x| x.into())
         .collect()
     )

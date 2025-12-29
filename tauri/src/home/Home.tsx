@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import SongCard from "./components/SongCard";
 import AlbumCard from "./components/AlbumCard";
 import DevicePicker from "./components/DevicePicker";
+import PlaylistCard from "./components/PlaylistCard";
 
 export default function Home() {
   const navigate = useNavigate();
@@ -25,6 +26,13 @@ export default function Home() {
     queryKey: ['albums'],
     queryFn: async () => {
       return unwrap(await commands.favouriteAlbums());
+    }
+  });
+
+  const { data: playlists } = useQuery({
+    queryKey: ['playlists'],
+    queryFn: async () => {
+      return unwrap(await commands.userPlaylists());
     }
   });
 
@@ -53,6 +61,10 @@ export default function Home() {
         </Button>
         <DevicePicker />
       </div>
+      <div className="flex flex-wrap gap-5">
+        {playlists?.map(playlist => <PlaylistCard id={playlist.uuid} title={playlist.title} image={playlist.image} />)}
+      </div>
+      <hr/>
       <div className="flex flex-wrap gap-5">
         {albums?.map(album => <AlbumCard id={album.item.id} title={album.item.title} quality={album.item.audioQuality} image={album.item.cover} />)}
       </div>

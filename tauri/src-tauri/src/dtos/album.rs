@@ -120,6 +120,7 @@ pub struct AlbumSummaryDTO {
 #[serde_as]
 #[derive(Debug, Serialize, Deserialize, Clone, Type, StructuralConvert)]
 #[convert(from(ArtistSummary))]
+#[convert(into(ArtistSummary))]
 #[serde(rename_all = "camelCase")]
 pub struct ArtistSummaryDTO {
     /// Unique artist identifier

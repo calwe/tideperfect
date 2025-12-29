@@ -4,6 +4,7 @@ import Home from './home/Home';
 import Login from './login/Login';
 import Album from './album/Album';
 import Layout from './Layout';
+import Playlist from './playlist/Playlist';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -24,6 +25,7 @@ function App() {
             <Route element={<Layout />}>
               <Route path="/" element={<Home />} />
               <Route path="/album/:albumId" element={<Album />} />
+              <Route path="/playlist/:playlistId" element={<Playlist />} />
             </Route>
           </Routes>
         </HashRouter>

@@ -25,7 +25,8 @@ pub fn run() -> Result<(), TidePerfectError> {
     let specta_builder = Builder::<tauri::Wry>::new()
         .commands(collect_commands![
             auth::is_logged_in, auth::login,
-            album::favourite_albums, album::album_tracks,
+            album::favourite_albums, album::album_tracks, 
+            album::user_playlists, album::playlist_tracks,
             queue::queue_track, queue::queue_album,
             player::play, player::pause, player::skip, player::previous,
             player::devices, player::set_device,
