@@ -15,7 +15,7 @@ tracing-subscriber = { version = "0.3.22", features = ["env-filter"] }
 dash-mpd = "0.19.1"
 base64 = "0.22.1"
 reqwest = "0.12.26"
-symphonia = { version = "0.5.5", features = ["isomp4", "flac"] }
+symphonia = { version = "0.5.5", features = ["isomp4", "flac", "aac"] }
 bytes = "1.11.0"
 #cpal = "0.17.0"
 cpal = { git = "https://github.com/RustAudio/cpal.git", branch = "fix/alsa-card-enumeration" }
