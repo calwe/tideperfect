@@ -1,4 +1,4 @@
-import { commands } from "@/bindings";
+import { CommandDeviceDTO, commands } from "@/bindings";
 import { Select, SelectItem, SelectLabel, SelectContent, SelectGroup, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { unwrap } from "@/lib/result";
 import { useQuery } from "@tanstack/react-query";
@@ -14,7 +14,7 @@ export default function DevicePicker() {
 
       if (result.length > 0 && !selectedValue) {
         const initial = result[0];
-        setSelectedValue(initial);
+        setSelectedValue(initial.id);
       }
       return result;
     },
@@ -22,7 +22,7 @@ export default function DevicePicker() {
 
   const handleValueChange = async (value: string) => {
     setSelectedValue(value);
-    await commands.setOutputDevice(value);
+    await commands.setDevice(value);
   };
 
   if (isLoading || !devices) {
@@ -44,8 +44,8 @@ export default function DevicePicker() {
         <SelectGroup>
           <SelectLabel>Devices</SelectLabel>
           {devices?.map((device) => (
-            <SelectItem key={device} value={device}>
-              {device}
+            <SelectItem key={device.id} value={device.id}>
+              {device.name} ({device.id})
             </SelectItem>
           ))}
         </SelectGroup>

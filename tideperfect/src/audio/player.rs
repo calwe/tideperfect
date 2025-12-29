@@ -1,10 +1,12 @@
-use std::sync::{atomic::{AtomicBool, Ordering}, Arc};
+use std::{str::FromStr, sync::{atomic::{AtomicBool, Ordering}, Arc}};
 
-use cpal::Device;
+use cpal::{traits::{DeviceTrait, HostTrait}, Device, Devices};
+use serde::de;
+use snafu::Report;
 use strum_macros::EnumDiscriminants;
-use tokio::sync::{broadcast, mpsc, Mutex};
-use tracing::{error, info};
-use cpal::Host;
+use tokio::sync::{broadcast, mpsc, oneshot, Mutex};
+use tracing::{error, info, trace};
+use cpal::{Host, DeviceId};
 
 use crate::{audio::{queue::Queue, track::Track}, Event};
 
@@ -14,6 +16,12 @@ pub enum PlayerCommand {
     Skip,
     Previous,
     SwitchDevice(String),
+    GetDevices(oneshot::Sender<Vec<CommandDevice>>)
+}
+
+pub struct CommandDevice {
+    pub name: String,
+    pub id: String,
 }
 
 #[derive(Debug, Clone, EnumDiscriminants)]
@@ -34,7 +42,7 @@ pub async fn player_loop(
     played: Arc<Mutex<Vec<Track>>>,
 ) {
     let mut current_track: Option<Track> = None;
-    let device = default_device;
+    let mut device = default_device;
     let paused = Arc::new(AtomicBool::new(true));
 
     // TODO: We need to properly handle results in this thread
@@ -52,7 +60,7 @@ pub async fn player_loop(
                                 info!("Starting first track in queue");
 
                                 if let Err(e) = track.start_playback(&device, event_emitter.clone(), command_tx.clone(), paused.clone()) {
-                                    error!("Failed to start track: {}", e);
+                                    error!("Failed to start track: {}", Report::from_error(e));
                                 } else {
                                     event_emitter.send(Event::PlayerEvent(PlayerEvent::UpdatedCurrentTrack(Some(Box::new(track.track.clone())))));
                                     current_track = Some(track);
@@ -113,7 +121,20 @@ pub async fn player_loop(
                             event_emitter.send(Event::PlayerEvent(PlayerEvent::UpdatedPauseState(true)));
                         }
                     }
-                    PlayerCommand::SwitchDevice(device) => {}
+                    PlayerCommand::SwitchDevice(new_device) => {
+                        info!("Switching to device {new_device}");
+                        let device_id = DeviceId::from_str(&new_device).unwrap();
+                        device = host.device_by_id(&device_id).unwrap();
+                    }
+                    PlayerCommand::GetDevices(sender) => {
+                        trace!("Getting devices");
+                        let devices = host.devices().unwrap();
+                        let devices = devices.map(|device| CommandDevice {
+                            name: device.description().unwrap().name().to_owned(),
+                            id: device.id().unwrap().to_string(),
+                        }).collect();
+                        sender.send(devices);
+                    }
                 }
             }
         }

@@ -2,12 +2,12 @@ use std::sync::Arc;
 
 use cpal::{default_host, traits::{DeviceTrait, HostTrait}};
 use snafu::Snafu;
-use tokio::sync::{broadcast, mpsc, Mutex};
+use tokio::sync::{broadcast, mpsc, oneshot, Mutex};
 use tracing::{instrument, trace};
 
 use crate::{audio::{player::{player_loop, PlayerCommand}, queue::Queue, track::Track}, Event};
 
-pub use crate::audio::player::{PlayerEvent, PlayerEventDiscriminants};
+pub use crate::audio::player::{PlayerEvent, PlayerEventDiscriminants, CommandDevice};
 
 pub struct PlayerService {
     control_tx: mpsc::Sender<PlayerCommand>,
@@ -20,7 +20,7 @@ impl PlayerService {
     pub fn init_default_output(queue: Arc<Mutex<Queue>>, event_emitter: broadcast::Sender<Event>) -> Result<Self, PlayerServiceError> {
         let host = default_host();
         let device = host.default_output_device().ok_or(PlayerServiceError::NoDefaultDevice)?;
-        trace!("Using device with name: {:?}", device.name());
+        trace!("Using device: {:?}", device.description());
 
         let played = Arc::new(Mutex::new(Vec::new()));
         let (control_tx, control_rx) = mpsc::channel(32);
@@ -63,6 +63,22 @@ impl PlayerService {
     pub async fn previous(&self) -> Result<(), PlayerServiceError> {
         self.control_tx.send(PlayerCommand::Previous).await
             .map_err(|_| PlayerServiceError::BackgroundThreadDied)?;
+        Ok(())
+    }
+
+    pub async fn devices(&self) -> Result<Vec<CommandDevice>, PlayerServiceError> {
+        let (tx, rx) = oneshot::channel();
+
+        self.control_tx.send(PlayerCommand::GetDevices(tx)).await
+            .map_err(|_| PlayerServiceError::BackgroundThreadDied)?;
+
+        Ok(rx.await.unwrap())
+    }
+
+    pub async fn set_device(&self, device: String) -> Result<(), PlayerServiceError> {
+        self.control_tx.send(PlayerCommand::SwitchDevice(device)).await
+            .map_err(|_| PlayerServiceError::BackgroundThreadDied)?;
+
         Ok(())
     }
 }

@@ -51,6 +51,7 @@ export default function Home() {
         <Button onClick={playQueue}>
           Play Queue
         </Button>
+        <DevicePicker />
       </div>
       <div className="flex flex-wrap gap-5">
         {albums?.map(album => <AlbumCard id={album.item.id} title={album.item.title} quality={album.item.audioQuality} image={album.item.cover} />)}

@@ -28,6 +28,7 @@ pub fn run() -> Result<(), TidePerfectError> {
             album::favourite_albums, album::album_tracks,
             queue::queue_track, queue::queue_album,
             player::play, player::pause, player::skip, player::previous,
+            player::devices, player::set_device,
         ])
         .events(collect_events![
             auth::LoggedIn,
@@ -52,6 +53,7 @@ pub fn run() -> Result<(), TidePerfectError> {
 
             let log_event_filter = vec![
                 EventFilter::PlayerEvent(PlayerEventDiscriminants::UpdatedTrackProgress),
+                EventFilter::QueueEvent(QueueEventDiscriminants::QueueUpdated),
             ];
 
             log_events(event_reciever, log_event_filter);

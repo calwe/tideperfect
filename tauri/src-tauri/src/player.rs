@@ -6,7 +6,7 @@ use tideperfect::{services::player::PlayerEvent, Event as RecvEvent, TidePerfect
 use tokio::sync::{broadcast, Mutex};
 use tracing::{instrument, trace};
 
-use crate::{dtos::track::TrackDTO, error::ErrorDTO};
+use crate::{dtos::{device::CommandDeviceDTO, track::TrackDTO}, error::ErrorDTO};
 
 #[derive(Serialize, Deserialize, Debug, Clone, Type, Event)]
 pub struct UpdatedCurrentTrack(Option<TrackDTO>);
@@ -88,3 +88,29 @@ pub async fn previous(state: State<'_, Mutex<TidePerfect>>) -> Result<(), ErrorD
 
     Ok(())
 }
+
+#[tauri::command]
+#[specta::specta]
+#[instrument(skip(state))]
+pub async fn devices(state: State<'_, Mutex<TidePerfect>>) -> Result<Vec<CommandDeviceDTO>, ErrorDTO> {
+    trace!("Got command: devices");
+
+    let state = state.lock().await;
+    let devices = state.player_service.devices().await?;
+    let devices = devices.into_iter().map(|x| x.into()).collect();
+
+    Ok(devices)
+}
+
+#[tauri::command]
+#[specta::specta]
+#[instrument(skip(state))]
+pub async fn set_device(state: State<'_, Mutex<TidePerfect>>, device: String) -> Result<(), ErrorDTO> {
+    trace!("Got command: set_device({device:?})");
+
+    let state = state.lock().await;
+    state.player_service.set_device(device).await?;
+
+    Ok(())
+}
+

@@ -84,6 +84,22 @@ async previous() : Promise<Result<null, ErrorDTO>> {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
+},
+async devices() : Promise<Result<CommandDeviceDTO[], ErrorDTO>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("devices") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async setDevice(device: string) : Promise<Result<null, ErrorDTO>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("set_device", { device }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
 }
 }
 
@@ -331,6 +347,7 @@ export type AudioQualityDTO =
  * Hi-Res Lossless quality (FLAC, up to 192 kHz / 24-bit)
  */
 "HI_RES_LOSSLESS"
+export type CommandDeviceDTO = { name: string; id: string }
 export type ErrorDTO = { error: string }
 export type FavouriteAlbumDTO = { created: string; item: AlbumDTO }
 export type LoggedIn = null

@@ -157,9 +157,10 @@ impl Track {
         let supported_configs = device.supported_output_configs().context(SupportedStreamConfigsSnafu)?;
         let supported_config = supported_configs
             .filter(|c| c.channels() == metadata.channels)
+            .inspect(|c| trace!("inspect: {c:?}"))
             .find(|c| c.sample_format() == Self::sample_size_to_format(metadata.sample_size))
             .ok_or(TrackError::UnsupportedConfig { metadata })?
-            .try_with_sample_rate(SampleRate(metadata.sample_rate))
+            .try_with_sample_rate(metadata.sample_rate)
             .ok_or(TrackError::UnsupportedConfig { metadata })?;
         trace!("Using supported config: {supported_config:?}");
 
@@ -349,7 +350,7 @@ impl Track {
     fn sample_size_to_format(sample_size: u32) -> SampleFormat {
         match sample_size {
             16 => SampleFormat::I16,
-            24 => SampleFormat::I32,
+            24 => SampleFormat::I24,
             _ => SampleFormat::I32,
         }
     }
