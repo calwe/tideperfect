@@ -15,6 +15,7 @@ mod dtos;
 mod error;
 mod player;
 mod queue;
+mod track;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() -> Result<(), TidePerfectError> {
@@ -30,6 +31,7 @@ pub fn run() -> Result<(), TidePerfectError> {
             queue::queue_track, queue::queue_album,
             player::play, player::pause, player::skip, player::previous,
             player::devices, player::set_device,
+            track::lyrics,
         ])
         .events(collect_events![
             auth::LoggedIn,

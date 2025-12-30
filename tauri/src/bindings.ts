@@ -116,6 +116,14 @@ async setDevice(device: string) : Promise<Result<null, ErrorDTO>> {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
+},
+async lyrics(id: string) : Promise<Result<string | null, ErrorDTO>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("lyrics", { id }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
 }
 }
 

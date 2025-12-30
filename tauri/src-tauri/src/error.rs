@@ -3,7 +3,7 @@ use std::num::ParseIntError;
 use serde::{Deserialize, Serialize};
 use snafu::Report;
 use specta::Type;
-use tideperfect::{services::{album::AlbumServiceError, auth::AuthServiceError, player::PlayerServiceError, queue::QueueServiceError}, TidePerfectError};
+use tideperfect::{services::{album::AlbumServiceError, auth::AuthServiceError, player::PlayerServiceError, queue::QueueServiceError, track::TrackServiceError}, TidePerfectError};
 use tracing::error;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
@@ -57,6 +57,17 @@ impl From<QueueServiceError> for ErrorDTO {
 
 impl From<PlayerServiceError> for ErrorDTO {
     fn from(value: PlayerServiceError) -> Self {
+        let report = Report::from_error(&value);
+        error!("TidePerfect returned an error:\n{}", report);
+
+        Self {
+            error: value.to_string(),
+        }
+    }
+}
+
+impl From<TrackServiceError> for ErrorDTO {
+    fn from(value: TrackServiceError) -> Self {
         let report = Report::from_error(&value);
         error!("TidePerfect returned an error:\n{}", report);
 

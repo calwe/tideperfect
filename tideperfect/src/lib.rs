@@ -5,7 +5,7 @@ use strum_macros::EnumDiscriminants;
 use tokio::sync::broadcast;
 
 use crate::{audio::{player::PlayerEvent, queue::QueueEvent}, services::{album::AlbumService, auth::{AuthEvent, AuthService, AuthServiceError},
-        player::{PlayerService, PlayerServiceError}, queue::QueueService}, utils::persistence::{PersistanceError, Persistence}};
+        player::{PlayerService, PlayerServiceError}, queue::QueueService, track::TrackService}, utils::persistence::{PersistanceError, Persistence}};
 
 use dotenvy::dotenv;
 
@@ -25,6 +25,7 @@ pub struct TidePerfect {
     pub album_service: AlbumService,
     pub queue_service: QueueService,
     pub player_service: PlayerService,
+    pub track_service: TrackService,
 }
 
 impl TidePerfect {
@@ -41,12 +42,14 @@ impl TidePerfect {
 
         let album_service = AlbumService::new(tidal_client.clone());
         let player_service = PlayerService::init_default_output(queue.clone(), event_emitter.clone()).context(PlayerServiceSnafu)?;
+        let track_service = TrackService::new(tidal_client.clone());
 
         Ok(Self {
             auth_service,
             album_service,
             queue_service,
             player_service,
+            track_service,
         })
     }
 }
