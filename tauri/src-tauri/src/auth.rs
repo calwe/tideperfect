@@ -34,7 +34,7 @@ pub async fn is_logged_in(state: State<'_, Mutex<TidePerfect>>) -> Result<bool, 
 #[tauri::command]
 #[specta::specta]
 #[instrument(skip(state))]
-pub async fn login(state: State<'_, Mutex<TidePerfect>>) -> Result<(), ErrorDTO> {
+pub async fn login(state: State<'_, Mutex<TidePerfect>>) -> Result<String, ErrorDTO> {
     let mut state = state.lock().await;
     Ok(state.auth_service.login().await?)
 }

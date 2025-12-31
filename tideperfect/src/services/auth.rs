@@ -77,13 +77,11 @@ impl AuthService {
     }
 
     #[instrument(err)]
-    pub async fn login(&mut self) -> Result<(), AuthServiceError> {
+    pub async fn login(&mut self) -> Result<String, AuthServiceError> {
         let device_auth = self.tidal_client.device_authorization().await
             .context(DeviceAuthorizationSnafu)?;
 
         trace!("Started login flow at {}", device_auth.url);
-
-        open::that(device_auth.url).context(OpenBrowserSnafu)?;
 
         let tidal_client = self.tidal_client.clone();
         let device_code = device_auth.device_code;
@@ -120,7 +118,7 @@ impl AuthService {
             }
         });
 
-        Ok(())
+        Ok(device_auth.user_code)
     }
 }
 

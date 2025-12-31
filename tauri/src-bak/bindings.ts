@@ -13,7 +13,7 @@ async isLoggedIn() : Promise<Result<boolean, ErrorDTO>> {
     else return { status: "error", error: e  as any };
 }
 },
-async login() : Promise<Result<string, ErrorDTO>> {
+async login() : Promise<Result<null, ErrorDTO>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("login") };
 } catch (e) {

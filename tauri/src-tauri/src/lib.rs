@@ -48,6 +48,7 @@ pub fn run() -> Result<(), TidePerfectError> {
 
     tauri_builder
         .invoke_handler(specta_builder.invoke_handler())
+        .plugin(tauri_plugin_opener::init())
         .setup(move |app| {
             let app_handle = app.handle().clone();
 

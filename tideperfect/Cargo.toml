@@ -26,4 +26,5 @@ url = "2.5"
 strum = { version = "0.27.2", features = ["strum_macros"] }
 strum_macros = "0.27.2"
 snafu = "0.8.9"
+tauri-plugin-opener = "2.5.2"
 

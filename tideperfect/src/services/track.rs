@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use snafu::{ResultExt, Snafu};
-use tidalrs::{Lyrics, TidalApiError, TidalClient};
+use tidalrs::{TidalApiError, TidalClient};
 
 pub use tidalrs::{Track, MediaMetadata, AudioQuality};
 use tracing::instrument;
